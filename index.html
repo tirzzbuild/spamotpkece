@@ -1,0 +1,777 @@
+<!DOCTYPE html><html lang="id"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GARAXt - OTP Requester</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0a0a0a; color: #fff; overflow: hidden; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .hidden { display: none !important; }
+        .view { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.3s; overflow-y: auto; }
+
+        /* SVG Helper */
+        .icon { width: 18px; height: 18px; display: inline-block; vertical-align: middle; }
+        .icon-lg { width: 24px; height: 24px; }
+
+        /* AUTH */
+        #authView { background: #0a0a0a; z-index: 10; }
+        .auth-box { background: #151515; padding: 40px; border-radius: 12px; border: 1px solid #333; width: 90%; max-width: 400px; text-align: center; }
+        .auth-box h1 { margin-bottom: 20px; color: #ff3333; letter-spacing: 2px; }
+        .auth-box input { width: 100%; padding: 15px; margin-bottom: 20px; background: #222; border: 1px solid #444; color: #fff; border-radius: 8px; outline: none; }
+        .auth-box button { width: 100%; padding: 15px; background: #ff3333; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .auth-box button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .error-msg { color: #ff3333; margin-bottom: 15px; font-size: 14px; }
+
+        /* REMEMBER DEVICE */
+        .remember-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+            margin-top: 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .remember-row input[type="checkbox"] {
+            display: none;
+        }
+        .custom-checkbox {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+            border: 2px solid #555;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .custom-checkbox svg {
+            width: 14px;
+            height: 14px;
+            color: #fff;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s ease;
+        }
+        .remember-row input[type="checkbox"]:checked + .custom-checkbox {
+            background: #ff3333;
+            border-color: #ff3333;
+        }
+        .remember-row input[type="checkbox"]:checked + .custom-checkbox svg {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .remember-label {
+            font-size: 13px;
+            color: #ccc;
+            font-weight: 500;
+        }
+
+        /* LOADING */
+        #loadingView { background: #000; z-index: 20; }
+        .loader-container { width: 80%; max-width: 500px; text-align: center; }
+        .loader-text { font-size: 24px; font-weight: bold; margin-bottom: 20px; letter-spacing: 4px; }
+        .progress-bar { width: 100%; height: 4px; background: #222; border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; background: #fff; transition: width 0.1s linear; box-shadow: 0 0 10px #fff; }
+        .percent-text { margin-top: 10px; font-size: 14px; color: #888; }
+
+        /* TOOLS */
+        #toolsView { background: #0a0a0a; z-index: 5; padding: 20px; overflow-y: auto; justify-content: flex-start; padding-top: 50px; }
+        .tools-topbar { width: 100%; max-width: 600px; display: flex; justify-content: flex-end; margin-bottom: 10px; }
+        .btn-music { padding: 10px 18px; background: #151515; color: #fff; border: 1px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-music:hover { background: #222; border-color: #555; }
+        .btn-music .icon { color: #00ff88; }
+        .tools-header { text-align: center; margin-bottom: 30px; }
+
+        /* ==== GARAXt TITLE (SHIMMER PUTIH - ABU) ==== */
+        .tools-header h1 {
+            font-size: 48px;
+            letter-spacing: 8px;
+            font-weight: 800;
+            background: linear-gradient(
+                100deg,
+                #ffffff 0%,
+                #bdbdbd 25%,
+                #ffffff 50%,
+                #9e9e9e 75%,
+                #ffffff 100%
+            );
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            animation: shimmer 3s linear infinite;
+            filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.15));
+        }
+        @keyframes shimmer {
+            0%   { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .tools-header p { color: #888; margin-top: 10px; }
+
+        .input-group { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px; }
+        .phone-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .phone-inputs input { padding: 15px; background: #151515; border: 1px solid #333; color: #fff; border-radius: 8px; outline: none; }
+        .btn-request { padding: 18px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-request:disabled { opacity: 0.6; cursor: wait; }
+
+        .results-area { width: 100%; max-width: 600px; margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .result-card { background: #151515; border: 1px solid #333; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .result-card .status { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+
+        /* STATISTIK */
+        .stats-box { width: 100%; max-width: 600px; margin-top: 25px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .stat-item { background: #151515; border: 1px solid #333; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-item .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 6px; }
+        .stat-item .stat-value { font-size: 22px; font-weight: 700; }
+        .stat-success .stat-value { color: #00ff88; }
+        .stat-ratelimit .stat-value { color: #ffaa00; }
+        .stat-bad .stat-value { color: #ff5555; }
+        .stat-error .stat-value { color: #ff3333; }
+
+        /* BLOCKED */
+        #blockedView { background: #ff0000; z-index: 9999; text-align: center; padding: 20px; }
+        #blockedView h1 { font-size: 3rem; margin-bottom: 20px; }
+        #blockedView p { font-size: 1.2rem; }
+
+        /* MUSIC DASHBOARD */
+        #musicView { background: #0a0a0a; z-index: 30; padding: 20px; overflow-y: auto; justify-content: flex-start; padding-top: 25px; }
+        .music-topbar { width: 100%; max-width: 600px; display: flex; justify-content: flex-start; margin-bottom: 20px; }
+        .btn-back { padding: 10px 18px; background: #151515; color: #fff; border: 1px solid #333; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+        .btn-back:hover { background: #222; }
+        .music-header { text-align: center; margin-bottom: 30px; }
+        .music-header h1 { font-size: 36px; letter-spacing: 4px; color: #fff; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .music-header p { color: #888; margin-top: 5px; font-size: 14px; }
+        
+        .song-list { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 10px; }
+        .song-item { background: #151515; border: 1px solid #333; padding: 14px 18px; border-radius: 10px; display: flex; align-items: center; gap: 15px; transition: 0.2s; cursor: pointer; }
+        .song-item:hover { border-color: #555; }
+        .song-item.playing { border-color: #00ff88; background: #0f1a12; }
+        .song-info { flex: 1; min-width: 0; }
+        .song-title { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .song-artist { font-size: 12px; color: #888; margin-top: 2px; }
+        
+        .play-btn { width: 40px; height: 40px; border-radius: 50%; background: #222; border: 1px solid #444; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0; }
+        .play-btn:hover { background: #333; }
+        .song-item.playing .play-btn { background: #00ff88; color: #000; border-color: #00ff88; }
+
+        /* NOW PLAYING BAR */
+        .now-playing { position: fixed; bottom: 0; left: 0; right: 0; background: #0f0f0f; border-top: 1px solid #333; padding: 12px 20px; display: flex; align-items: center; gap: 15px; z-index: 50; }
+        .now-playing.hidden { display: none; }
+        .now-info { flex: 1; min-width: 0; }
+        .now-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .now-artist { font-size: 11px; color: #888; }
+        .now-controls { display: flex; gap: 8px; }
+        .now-btn { width: 36px; height: 36px; border-radius: 50%; background: #222; border: 1px solid #444; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .now-btn:hover { background: #333; }
+
+        /* =========================================
+           SUBSCRIBE YOUTUBE BOX (BARU)
+           ========================================= */
+        .yt-sub-box {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1.5px solid;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 13px;
+            text-align: left;
+            transition: 0.3s;
+        }
+        .yt-sub-box.not-subbed {
+            border-color: #ff3333;
+            background: rgba(255, 51, 51, 0.08);
+        }
+        .yt-sub-box.subbed {
+            border-color: #00c853;
+            background: rgba(0, 200, 83, 0.08);
+        }
+        .yt-sub-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .yt-logo {
+            width: 26px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        .yt-sub-text {
+            flex: 1;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+        .yt-sub-box.not-subbed .yt-sub-text { color: #ff5555; }
+        .yt-sub-box.subbed .yt-sub-text { color: #00e676; }
+
+        .yt-refresh-btn {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .yt-refresh-btn:hover { filter: brightness(1.15); }
+        .yt-sub-box.not-subbed .yt-refresh-btn {
+            background: #ff3333;
+            color: #fff;
+        }
+        .yt-sub-box.subbed .yt-refresh-btn {
+            display: none; /* sembunyikan tombol kalau sudah subscribe */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ICON LIBRARY (SVG SPRITE) -->
+    <svg style="display:none;">
+        <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 4l14 8-14 8z"></path>
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+            <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+        </symbol>
+        <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5"></path>
+            <path d="M12 19l-7-7 7-7"></path>
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"></path>
+        </symbol>
+        <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6L6 18M6 6l12 12"></path>
+        </symbol>
+        <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2L11 13"></path>
+            <path d="M22 2l-7 20-4-9-9-4z"></path>
+        </symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </symbol>
+        <symbol id="i-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </symbol>
+        <!-- YouTube logo -->
+        <symbol id="i-youtube" viewBox="0 0 24 24">
+            <path fill="#FF0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8z"></path>
+            <path fill="#FFFFFF" d="M9.6 15.6V8.4l6.2 3.6z"></path>
+        </symbol>
+        <!-- Refresh icon -->
+        <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6"></path>
+            <path d="M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+            <path d="M20.49 15A9 9 0 0 1 5.64 18.36L1 14"></path>
+        </symbol>
+    </svg>
+
+    <!-- BLOCKED -->
+    <div id="blockedView" class="view hidden">
+        <svg class="icon" style="width:64px;height:64px;color:#fff;margin-bottom:20px;"><use href="#i-warning"></use></svg>
+        <h1>AKSES DITOLAK</h1>
+        <p>Perangkat Telah Di Blockir Dari Tools Jika Ingin Membuka Chat Admin @SecondAccF</p>
+    </div>
+
+    <!-- AUTH -->
+    <div id="authView" class="view">
+        <div class="auth-box">
+            <h1>GARAXt</h1>
+            <p style="margin-bottom:20px; color:#888; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <svg class="icon" style="color:#888;"><use href="#i-lock"></use></svg>
+                Masukkan Password untuk melanjutkan
+            </p>
+
+            <!-- =========================================
+                 SUBSCRIBE YOUTUBE (BARU)
+                 ========================================= -->
+            <div id="ytSubBox" class="yt-sub-box not-subbed">
+                <div class="yt-sub-row">
+                    <svg class="yt-logo"><use href="#i-youtube"></use></svg>
+                    <div class="yt-sub-text" id="ytSubText">Silahkan Subscribe Channel Kami Terlebih Dahulu</div>
+                </div>
+                <button class="yt-refresh-btn" onclick="checkYoutubeSub()">
+                    <svg class="icon" style="width:15px;height:15px;"><use href="#i-refresh"></use></svg>
+                    Refresh Status Subscribe
+                </button>
+            </div>
+
+            <div id="authError" class="error-msg hidden"></div>
+            <input type="password" id="passwordInput" placeholder="Password..." autocomplete="off" disabled="">
+            <button id="loginBtn" onclick="checkPassword()" disabled="">Login</button>
+
+            <!-- REMEMBER DEVICE -->
+            <label class="remember-row" for="rememberDevice">
+                <input type="checkbox" id="rememberDevice">
+                <span class="custom-checkbox">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 6L9 17l-5-5"></path>
+                    </svg>
+                </span>
+                <span class="remember-label">Ingat Perangkat Saya</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="loadingView" class="view hidden">
+        <div class="loader-container">
+            <div class="loader-text">LOADING</div>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="percent-text" id="percentText">0%</div>
+        </div>
+    </div>
+
+    <!-- TOOLS -->
+    <div id="toolsView" class="view hidden">
+        <div class="tools-topbar">
+            <button class="btn-music" onclick="openMusic()">
+                <svg class="icon"><use href="#i-music"></use></svg>
+                Play Music
+            </button>
+        </div>
+        <div class="tools-header">
+            <h1>GARAXt</h1>
+            <p style="color:#888; margin-top:10px;">Spammer OTP WhatsApp &amp; SMS</p>
+        </div>
+        <div class="input-group">
+            <div class="phone-inputs">
+                <input type="number" class="phone" placeholder="08xxxxxxxxxx">
+                <input type="number" class="phone" placeholder="08xxxxxxxxxx">
+                <input type="number" class="phone" placeholder="08xxxxxxxxxx">
+                <input type="number" class="phone" placeholder="08xxxxxxxxxx">
+                <input type="number" class="phone" placeholder="08xxxxxxxxxx">
+            </div>
+            <button class="btn-request" id="btnReq" onclick="requestOTP()">
+                <svg class="icon"><use href="#i-send"></use></svg>
+                Request OTP
+            </button>
+        </div>
+        <div id="resultsArea" class="results-area"></div>
+        <div id="statsBox" class="stats-box hidden">
+            <div class="stat-item stat-success">
+                <div class="stat-label">Success</div>
+                <div class="stat-value" id="statSuccess">0</div>
+            </div>
+            <div class="stat-item stat-ratelimit">
+                <div class="stat-label">Rate Limit</div>
+                <div class="stat-value" id="statRate">0</div>
+            </div>
+            <div class="stat-item stat-bad">
+                <div class="stat-label">Bad Request</div>
+                <div class="stat-value" id="statBad">0</div>
+            </div>
+            <div class="stat-item stat-error">
+                <div class="stat-label">Error</div>
+                <div class="stat-value" id="statError">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MUSIC DASHBOARD -->
+    <div id="musicView" class="view hidden">
+        <div class="music-topbar">
+            <button class="btn-back" onclick="closeMusic()">
+                <svg class="icon"><use href="#i-arrow-left"></use></svg>
+                Kembali
+            </button>
+        </div>
+        <div class="music-header">
+            <h1>
+                <svg class="icon icon-lg" style="color:#00ff88;"><use href="#i-music"></use></svg>
+                MUSIC
+            </h1>
+            <p>Pilih lagu dari folder assets/</p>
+        </div>
+        <div id="songList" class="song-list"></div>
+    </div>
+
+    <!-- NOW PLAYING BAR -->
+    <div id="nowPlaying" class="now-playing hidden">
+        <svg class="icon" style="color:#00ff88;flex-shrink:0;"><use href="#i-music"></use></svg>
+        <div class="now-info">
+            <div class="now-title" id="nowTitle">-</div>
+            <div class="now-artist" id="nowArtist">-</div>
+        </div>
+        <div class="now-controls">
+            <button class="now-btn" id="nowPlayBtn" onclick="togglePlayFromBar()">
+                <svg class="icon"><use href="#i-play"></use></svg>
+            </button>
+        </div>
+    </div>
+
+    <audio id="audioPlayer" preload="none"></audio>
+
+    <script>
+        let attempts = 0;
+        const API = '/api/index';
+        const REMEMBER_KEY = 'paradox_remember';
+
+        /* =========================================
+           KONFIGURASI YOUTUBE
+           ========================================= */
+        const YOUTUBE_URL = "https://www.youtube.com/@agaahost_official"; // GANTI dengan channel kamu
+        const SUB_KEY = 'paradox_subscribed';
+
+        /* =========================================
+           DAFTAR LAGU (EDIT DI SINI)
+           ========================================= */
+        const SONGS = [
+            { title: "Sadrah", artist: "For Revenge", src: "assets/For Revenge - Sadrah.mp3" },
+            { title: "Jatuh Suka", artist: "Tulus", src: "assets/Tulus - Jatuh Suka.mp3" },
+            { title: "Mulai", artist: "Idgitaf", src: "assets/Idgitaf - Mulai.mp3" }
+        ];
+
+        /* =========================================
+           CEK STATUS SUBSCRIBE SAAT LOAD
+           ========================================= */
+        window.addEventListener('DOMContentLoaded', () => {
+            updateSubscribeUI();
+
+            const remembered = localStorage.getItem(REMEMBER_KEY);
+            if (remembered === 'true') {
+                // Langsung masuk ke tools tanpa auth
+                document.getElementById("authView").classList.add("hidden");
+                document.getElementById("loadingView").classList.remove("hidden");
+                runLoading();
+            }
+        });
+
+        /* =========================================
+           SUBSCRIBE LOGIC
+           ========================================= */
+        function isSubscribed() {
+            return localStorage.getItem(SUB_KEY) === 'true';
+        }
+
+        function updateSubscribeUI() {
+            const box = document.getElementById("ytSubBox");
+            const text = document.getElementById("ytSubText");
+            const input = document.getElementById("passwordInput");
+            const btn = document.getElementById("loginBtn");
+
+            if (isSubscribed()) {
+                box.classList.remove("not-subbed");
+                box.classList.add("subbed");
+                text.innerText = "Terimakasih Telah Subscribe Channel Kami";
+                input.disabled = false;
+                btn.disabled = false;
+            } else {
+                box.classList.remove("subbed");
+                box.classList.add("not-subbed");
+                text.innerText = "Silahkan Subscribe Channel Kami Terlebih Dahulu";
+                input.disabled = true;
+                btn.disabled = true;
+            }
+        }
+
+        function checkYoutubeSub() {
+            if (isSubscribed()) {
+                // Sudah subscribe, langsung aktifkan
+                updateSubscribeUI();
+                return;
+            }
+
+            // Buka channel YouTube di tab baru
+            window.open(YOUTUBE_URL, '_blank');
+
+            // Setelah 2 detik, tandai sebagai subscribed
+            // (Dalam realita kamu perlu backend yang cek subscriber via YouTube API)
+            setTimeout(() => {
+                localStorage.setItem(SUB_KEY, 'true');
+                updateSubscribeUI();
+            }, 2000);
+        }
+
+        async function checkPassword() {
+            if (!isSubscribed()) {
+                return alert("Silahkan Subscribe Channel Kami Terlebih Dahulu");
+            }
+
+            const input = document.getElementById("passwordInput").value.trim();
+            const errorDiv = document.getElementById("authError");
+            if (!input) return;
+
+            try {
+                const res = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'auth', password: input })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    const remember = document.getElementById("rememberDevice").checked;
+                    if (remember) {
+                        localStorage.setItem(REMEMBER_KEY, 'true');
+                    } else {
+                        localStorage.removeItem(REMEMBER_KEY);
+                    }
+
+                    document.getElementById("authView").classList.add("hidden");
+                    document.getElementById("loadingView").classList.remove("hidden");
+                    runLoading();
+                } else if (data.blocked) {
+                    document.getElementById("authView").classList.add("hidden");
+                    document.getElementById("blockedView").classList.remove("hidden");
+                } else {
+                    attempts++;
+                    errorDiv.classList.remove("hidden");
+                    errorDiv.innerText = `Password salah! Sisa: ${3 - attempts}`;
+                    if (attempts >= 3) {
+                        await fetch(API, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'block_ip' })
+                        });
+                        document.getElementById("authView").classList.add("hidden");
+                        document.getElementById("blockedView").classList.remove("hidden");
+                    }
+                }
+            } catch (e) {
+                errorDiv.classList.remove("hidden");
+                errorDiv.innerText = "Gagal terhubung ke server.";
+            }
+        }
+
+        function runLoading() {
+            let progress = 0;
+            const fill = document.getElementById("progressFill");
+            const text = document.getElementById("percentText");
+            const interval = setInterval(() => {
+                progress += Math.random() * 5;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        document.getElementById("loadingView").classList.add("hidden");
+                        document.getElementById("toolsView").classList.remove("hidden");
+                    }, 500);
+                }
+                fill.style.width = progress + "%";
+                text.innerText = Math.floor(progress) + "%";
+            }, 50);
+        }
+
+        async function requestOTP() {
+            const inputs = document.querySelectorAll('.phone');
+            const resultsArea = document.getElementById("resultsArea");
+            const btn = document.getElementById("btnReq");
+            const statsBox = document.getElementById("statsBox");
+
+            resultsArea.innerHTML = "";
+            statsBox.classList.add("hidden");
+
+            let numbers = [];
+            inputs.forEach(input => { if (input.value.trim() !== "") numbers.push(input.value.trim()); });
+            if (numbers.length === 0) return alert("Masukkan minimal 1 nomor HP!");
+
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="icon"><use href="#i-send"/></svg> Memproses...`;
+
+            let stats = { success: 0, ratelimit: 0, bad: 0, error: 0 };
+
+            for (let i = 0; i < numbers.length; i++) {
+                const num = numbers[i];
+                const cardId = `res-${i}`;
+                resultsArea.innerHTML += `
+                    <div class="result-card" id="${cardId}">
+                        <div class="number">${num}</div>
+                        <div class="status" style="color:#aaa;">Mengirim OTP...</div>
+                    </div>
+                `;
+
+                try {
+                    const res = await fetch(API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'request_otp', phone: num })
+                    });
+                    const data = await res.json();
+                    const statusEl = document.querySelector(`#${cardId} .status`);
+
+                    if (data.success) {
+                        statusEl.style.color = "#00ff88";
+                        statusEl.innerHTML = `<svg class="icon"><use href="#i-check"/></svg> ${data.message || "OTP Terkirim"}`;
+                        stats.success++;
+                    } else {
+                        const errMsg = (data.error || "Gagal").toLowerCase();
+                        if (errMsg.includes("rate") || errMsg.includes("limit")) stats.ratelimit++;
+                        else if (errMsg.includes("bad") || errMsg.includes("400") || errMsg.includes("422")) stats.bad++;
+                        else stats.error++;
+
+                        statusEl.style.color = "#ff3333";
+                        statusEl.innerHTML = `<svg class="icon"><use href="#i-x"/></svg> ${data.error || "Gagal"}`;
+                    }
+                } catch (e) {
+                    stats.error++;
+                    const statusEl = document.querySelector(`#${cardId} .status`);
+                    statusEl.style.color = "#ff3333";
+                    statusEl.innerHTML = `<svg class="icon"><use href="#i-x"/></svg> Timeout / Error`;
+                }
+            }
+
+            const totalAll = stats.success + stats.ratelimit + stats.bad + stats.error;
+            if (totalAll > 0) {
+                statsBox.classList.remove("hidden");
+                document.getElementById("statSuccess").innerText = stats.success;
+                document.getElementById("statRate").innerText = stats.ratelimit;
+                document.getElementById("statBad").innerText = stats.bad;
+                document.getElementById("statError").innerText = stats.error;
+
+                document.querySelector(".stat-success").classList.toggle("hidden", stats.success === 0);
+                document.querySelector(".stat-ratelimit").classList.toggle("hidden", stats.ratelimit === 0);
+                document.querySelector(".stat-bad").classList.toggle("hidden", stats.bad === 0);
+                document.querySelector(".stat-error").classList.toggle("hidden", stats.error === 0);
+
+                const visibleCount = [stats.success, stats.ratelimit, stats.bad, stats.error].filter(x => x > 0).length;
+                statsBox.style.gridTemplateColumns = `repeat(${visibleCount}, 1fr)`;
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = `<svg class="icon"><use href="#i-send"/></svg> Request OTP`;
+        }
+
+        const audio = document.getElementById("audioPlayer");
+        let currentSongIndex = -1;
+
+        function openMusic() {
+            document.getElementById("toolsView").classList.add("hidden");
+            document.getElementById("musicView").classList.remove("hidden");
+            renderSongList();
+        }
+
+        function closeMusic() {
+            document.getElementById("musicView").classList.add("hidden");
+            document.getElementById("toolsView").classList.remove("hidden");
+        }
+
+        function svgPlay() {
+            return `<svg class="icon"><use href="#i-play"/></svg>`;
+        }
+        function svgPause() {
+            return `<svg class="icon"><use href="#i-pause"/></svg>`;
+        }
+
+        function renderSongList() {
+            const list = document.getElementById("songList");
+            list.innerHTML = "";
+
+            SONGS.forEach((song, idx) => {
+                const item = document.createElement("div");
+                item.className = "song-item";
+                item.id = `song-item-${idx}`;
+
+                const isPlaying = currentSongIndex === idx && !audio.paused;
+
+                item.innerHTML = `
+                    <div class="song-info">
+                        <div class="song-title">${song.title}</div>
+                        <div class="song-artist">${song.artist}</div>
+                    </div>
+                    <button class="play-btn" id="play-btn-${idx}" onclick="event.stopPropagation(); toggleSong(${idx})">
+                        ${isPlaying ? svgPause() : svgPlay()}
+                    </button>
+                `;
+
+                item.addEventListener("click", (e) => {
+                    if (e.target.closest(".play-btn")) return;
+                    toggleSong(idx);
+                });
+
+                if (isPlaying) item.classList.add("playing");
+                list.appendChild(item);
+            });
+        }
+
+        function toggleSong(idx) {
+            if (currentSongIndex === idx) {
+                if (audio.paused) {
+                    audio.play();
+                } else {
+                    audio.pause();
+                }
+            } else {
+                currentSongIndex = idx;
+                audio.src = SONGS[idx].src;
+                audio.play().catch(e => {
+                    alert("Gagal memutar lagu: " + e.message + "\nPastikan file ada di folder assets/");
+                });
+            }
+            updatePlayButtons();
+            updateNowPlaying();
+        }
+
+        function updatePlayButtons() {
+            SONGS.forEach((_, idx) => {
+                const btn = document.getElementById(`play-btn-${idx}`);
+                const item = document.getElementById(`song-item-${idx}`);
+                if (!btn) return;
+
+                const isCurrent = currentSongIndex === idx;
+                const isPlaying = isCurrent && !audio.paused;
+
+                btn.innerHTML = isPlaying ? svgPause() : svgPlay();
+                item.classList.toggle("playing", isCurrent && isPlaying);
+            });
+        }
+
+        function updateNowPlaying() {
+            const bar = document.getElementById("nowPlaying");
+            const title = document.getElementById("nowTitle");
+            const artist = document.getElementById("nowArtist");
+            const playBtn = document.getElementById("nowPlayBtn");
+
+            if (currentSongIndex === -1) {
+                bar.classList.add("hidden");
+                return;
+            }
+
+            const song = SONGS[currentSongIndex];
+            title.innerText = song.title;
+            artist.innerText = song.artist;
+            playBtn.innerHTML = audio.paused ? svgPlay() : svgPause();
+            bar.classList.remove("hidden");
+        }
+
+        function togglePlayFromBar() {
+            if (currentSongIndex === -1) return;
+            if (audio.paused) audio.play();
+            else audio.pause();
+        }
+
+        audio.addEventListener("play", () => { updatePlayButtons(); updateNowPlaying(); });
+        audio.addEventListener("pause", () => { updatePlayButtons(); updateNowPlaying(); });
+        audio.addEventListener("ended", () => {
+            if (currentSongIndex < SONGS.length - 1) {
+                toggleSong(currentSongIndex + 1);
+            } else {
+                audio.pause();
+                updatePlayButtons();
+                updateNowPlaying();
+            }
+        });
+    </script>
+
+</body></html>
